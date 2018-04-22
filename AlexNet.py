@@ -20,40 +20,13 @@ from caffe_classes import class_names
 import tensorflow as tf
 
 train_x = np.zeros((1, 227,227,3)).astype(np.float32)
-train_y = np.zeros((1, 1000))
 
-test_y = np.zeros((1, 1000))
+num_classes = 2 # 1000
+train_y = np.zeros((1, num_classes))
+
+test_y = np.zeros((1, num_classes))
 xdim = train_x.shape[1:]
 ydim = train_y.shape[1]
-
-################################################################################
-#Read Image, and change to BGR
-
-
-im1 = (imread("laska.png")[:,:,:3]).astype(np.float32)
-im1 = im1 - np.mean(im1)
-im1[:, :, 0], im1[:, :, 2] = im1[:, :, 2], im1[:, :, 0]
-
-im2 = (imread("laska.png")[:,:,:3]).astype(np.float32)
-im2[:, :, 0], im2[:, :, 2] = im2[:, :, 2], im2[:, :, 0]
-
-
-################################################################################
-
-# (self.feed('data')
-#         .conv(11, 11, 96, 4, 4, padding='VALID', name='conv1')
-#         .lrn(2, 2e-05, 0.75, name='norm1')
-#         .max_pool(3, 3, 2, 2, padding='VALID', name='pool1')
-#         .conv(5, 5, 256, 1, 1, group=2, name='conv2')
-#         .lrn(2, 2e-05, 0.75, name='norm2')
-#         .max_pool(3, 3, 2, 2, padding='VALID', name='pool2')
-#         .conv(3, 3, 384, 1, 1, name='conv3')
-#         .conv(3, 3, 384, 1, 1, group=2, name='conv4')
-#         .conv(3, 3, 256, 1, 1, group=2, name='conv5')
-#         .fc(4096, name='fc6')
-#         .fc(4096, name='fc7')
-#         .fc(1000, relu=False, name='fc8')
-#         .softmax(name='prob'))
 
 #In Python 3.5, change this to:
 #net_data = np.load(open("bvlc_alexnet.npy", "rb"), encoding="latin1").item()
@@ -66,7 +39,6 @@ def conv(input, kernel, biases, k_h, k_w, c_o, s_h, s_w,  padding="VALID", group
     assert c_i%group==0
     assert c_o%group==0
     convolve = lambda i, k: tf.nn.conv2d(i, k, [1, s_h, s_w, 1], padding=padding)
-    
     
     if group==1:
         conv = convolve(input, kernel)
@@ -197,15 +169,18 @@ with tf.name_scope("loss"):
 optimizer = tf.train.MomentumOptimizer(0.1, momentum=0.9)
 training_op = optimizer.minimize(loss)
 
+
+
+train_dataset = TRAIN_DATASET ## CONSTRUCT THESE
+test_dataset = TEST_DATASET
+
 with tf.Session() as sess:
     init.run()
     for epoch in range(n_epochs):
-        for iteration in range(mnist.train.num_examples // batch_size):
-            X_batch, y_batch = mnist.train.next_batch(batch_size)
+        for iteration in range(train_dataset.num_examples // batch_size):
+            X_batch, y_batch = train_dataset.next_batch(batch_size)
             sess.run(training_op, feed_dict={training: True, X: X_batch, y: y_batch})
-        acc_test = accuracy.eval(feed_dict={X: mnist.test.images, y: mnist.test.labels})
+        acc_test = accuracy.eval(feed_dict={X: test_dataset.images, y: test_dataset.labels})
         print(epoch, "Test accuracy:", acc_test)
 
-    save_path = saver.save(sess, "./my_model_final.ckpt")
-
-
+    save_path = saver.save(sess, "./lm_2class.ckpt")
