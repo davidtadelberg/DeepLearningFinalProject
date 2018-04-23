@@ -152,24 +152,26 @@ fc8W = tf.Variable(net_data["fc8"][0])
 fc8b = tf.Variable(net_data["fc8"][1])
 fc8 = tf.nn.xw_plus_b(fc7, fc8W, fc8b)
 
-
 #prob
 #softmax(name='prob'))
 prob = tf.nn.softmax(fc8)
 
-
 ################################################################################
 # Initialize the network (can take a while):
 
+y = tf.placeholder(tf.float32, (None,) + ydim)
+
 init = tf.global_variables_initializer()
 with tf.name_scope("loss"):
-    xentropy = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=test_y, logits=prob)
+	# test_y?
+    xentropy = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=y, logits=prob)
     loss = tf.reduce_mean(xentropy, name="loss")
+	
+with tf.name_scope("accuracy"):
+	accuracy = tf.metrics.accuracy(labels=tf.argmax(labels,0), predictions=tf.argmax(prob, 0))
 
 optimizer = tf.train.MomentumOptimizer(0.1, momentum=0.9)
 training_op = optimizer.minimize(loss)
-
-
 
 train_dataset = TRAIN_DATASET ## CONSTRUCT THESE
 test_dataset = TEST_DATASET
@@ -179,8 +181,9 @@ with tf.Session() as sess:
     for epoch in range(n_epochs):
         for iteration in range(train_dataset.num_examples // batch_size):
             X_batch, y_batch = train_dataset.next_batch(batch_size)
-            sess.run(training_op, feed_dict={training: True, X: X_batch, y: y_batch})
-        acc_test = accuracy.eval(feed_dict={X: test_dataset.images, y: test_dataset.labels})
+            sess.run(training_op, feed_dict={training: True, x: X_batch, y: y_batch})
+		
+        acc_test = accuracy.eval(feed_dict={x: test_dataset.images, y: test_dataset.labels})
         print(epoch, "Test accuracy:", acc_test)
 
     save_path = saver.save(sess, "./lm_2class.ckpt")
