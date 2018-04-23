@@ -1,0 +1,108 @@
+#!/usr/bin/env python
+import argparse
+import os
+import random
+import time
+
+import tensorflow as tf
+
+from adain.image import load_image, prepare_image
+from adain.util import extract_image_names_recursive
+
+def _int64_feature(value):
+      return tf.train.Feature(int64_list=tf.train.Int64List(value=[value]))
+
+def _bytes_feature(value):
+  return tf.train.Feature(bytes_list=tf.train.BytesList(value=[value]))
+
+train_filename = './tfrecords/train.tfrecords'  # address to save the TFRecords file
+# open the TFRecords file
+writer = tf.python_io.TFRecordWriter(train_filename)
+
+train_addrs = [] # List of filenames 
+train_labels = []
+
+for i in range(len(train_addrs)):
+    # print how many images are saved every 1000 images
+    if not i % 1000:
+        print 'Train data: {}/{}'.format(i, len(train_addrs))
+        sys.stdout.flush()
+    # Load the image
+    img = load_image(train_addrs[i])
+    label = train_labels[i]
+    # Create a feature
+    feature = {'train/label': _int64_feature(label),
+               'train/image': _bytes_feature(tf.compat.as_bytes(img.tostring()))}
+    # Create an example protocol buffer
+    example = tf.train.Example(features=tf.train.Features(feature=feature))
+    
+    # Serialize to string and write on the file
+    writer.write(example.SerializeToString())
+    
+writer.close()
+
+
+
+
+
+
+def prepare_dataset(input_dir, output_dir, size, images_per_file, file_prefix):
+    assert os.path.exists(input_dir), 'Input directory does not exist'
+    assert os.path.isdir(input_dir), '%s is not a directory' % input_dir
+    assert os.path.exists(output_dir), 'Output directory does not exist'
+    assert os.path.isdir(output_dir), '%s is not a directory' % output_dir
+
+    filenames = extract_image_names_recursive(input_dir)
+    random.shuffle(filenames)
+    print("%s images found in %s" % (len(filenames), input_dir))
+
+    start = time.time()
+    errors = 0
+    rate = 0
+    update_stat_every = 100
+    writer = None
+    for i, filename in enumerate(filenames):
+        if i % images_per_file == 0: # roll to a new file
+            pass
+            if writer:
+                writer.close()
+            output_file = '%s-%04i.tfrecords' % (file_prefix, i // images_per_file)
+            output_path = os.path.join(output_dir, output_file)
+            writer = tf.python_io.TFRecordWriter(output_path)
+        try:
+            image = load_image(filename, size, crop=True)
+            image = prepare_image(image, normalize=False)
+            example = build_example(image)
+            writer.write(example.SerializeToString())
+        except (OSError, OverflowError, ValueError):
+            errors += 1
+        print(i, '\t', '%0.4f image/sec, %s errors' % (rate, errors), end='\r')
+        if i % update_stat_every == 0:
+            rate = i / (time.time() - start)
+
+    print('%s images processed at %0.4f image/sec. %s errors occurred.' %
+        (len(filenames), rate, errors))
+
+
+def build_example(image):
+    image = image.tostring()
+    return tf.train.Example(features=tf.train.Features(feature={
+        'image': tf.train.Feature(bytes_list=tf.train.BytesList(value=[image]))
+    }))
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser(description="""Prepare images for training.
+        Each image is resized to the specified size, center-cropped, and
+        transposed from HWC to CHW.""")
+    parser.add_argument('input_dir', help='Directory containing images (jpg files only)')
+    parser.add_argument('output_dir', help='Output directory for TFRecords files')
+    parser.add_argument('--size', type=int, default=1024,
+        help='Scale to this minimum size before cropping, keep original size if set to zero')
+    parser.add_argument('--images_per_file', type=int, default=5000,
+        help='How many images to have in a single TFRecords file')
+    parser.add_argument('--file_prefix', default='train',
+        help='A prefix to add to TFRecords files')
+    args = parser.parse_args()
+
+    prepare_dataset(**vars(args))
