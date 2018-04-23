@@ -30,7 +30,34 @@ ydim = train_y.shape[1]
 
 #In Python 3.5, change this to:
 #net_data = np.load(open("bvlc_alexnet.npy", "rb"), encoding="latin1").item()
-net_data = np.load("bvlc_alexnet.npy").item()
+# net_data = np.load("bvlc_alexnet.npy").item()
+
+''' Tommy: reading in TF records files '''
+# data_path = 'train.tfrecords'  # address to save the hdf5 file
+
+# with tf.Session() as sess:
+#     feature = {'train/image': tf.FixedLenFeature([], tf.string),
+#                'train/label': tf.FixedLenFeature([], tf.int64)}
+#     # Create a list of filenames and pass it to a queue
+#     filename_queue = tf.train.string_input_producer([data_path], num_epochs=1)
+#     # Define a reader and read the next record
+#     reader = tf.TFRecordReader()
+#     _, serialized_example = reader.read(filename_queue)
+#     # Decode the record read by the reader
+#     features = tf.parse_single_example(serialized_example, features=feature)
+#     # Convert the image data from string back to the numbers
+#     image = tf.decode_raw(features['train/image'], tf.float32)
+    
+#     # Cast label data into int32
+#     label = tf.cast(features['train/label'], tf.int32)
+#     # Reshape image data into the original shape
+#     image = tf.reshape(image, [224, 224, 3])
+    
+#     # Any preprocessing here ...
+    
+#     # Creates batches by randomly shuffling tensors
+#     images, labels = tf.train.shuffle_batch([image, label], batch_size=10, capacity=30, num_threads=1, min_after_dequeue=10)
+
 
 def conv(input, kernel, biases, k_h, k_w, c_o, s_h, s_w,  padding="VALID", group=1):
     '''From https://github.com/ethereon/caffe-tensorflow
@@ -152,24 +179,26 @@ fc8W = tf.Variable(net_data["fc8"][0])
 fc8b = tf.Variable(net_data["fc8"][1])
 fc8 = tf.nn.xw_plus_b(fc7, fc8W, fc8b)
 
-
 #prob
 #softmax(name='prob'))
 prob = tf.nn.softmax(fc8)
 
-
 ################################################################################
 # Initialize the network (can take a while):
 
+y = tf.placeholder(tf.float32, (None,) + ydim)
+
 init = tf.global_variables_initializer()
 with tf.name_scope("loss"):
-    xentropy = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=test_y, logits=prob)
+	# test_y?
+    xentropy = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=y, logits=prob)
     loss = tf.reduce_mean(xentropy, name="loss")
+	
+with tf.name_scope("accuracy"):
+	accuracy = tf.metrics.accuracy(labels=tf.argmax(labels,0), predictions=tf.argmax(prob, 0))
 
 optimizer = tf.train.MomentumOptimizer(0.1, momentum=0.9)
 training_op = optimizer.minimize(loss)
-
-
 
 train_dataset = TRAIN_DATASET ## CONSTRUCT THESE
 test_dataset = TEST_DATASET
@@ -179,8 +208,9 @@ with tf.Session() as sess:
     for epoch in range(n_epochs):
         for iteration in range(train_dataset.num_examples // batch_size):
             X_batch, y_batch = train_dataset.next_batch(batch_size)
-            sess.run(training_op, feed_dict={training: True, X: X_batch, y: y_batch})
-        acc_test = accuracy.eval(feed_dict={X: test_dataset.images, y: test_dataset.labels})
+            sess.run(training_op, feed_dict={training: True, x: X_batch, y: y_batch})
+		
+        acc_test = accuracy.eval(feed_dict={x: test_dataset.images, y: test_dataset.labels})
         print(epoch, "Test accuracy:", acc_test)
 
     save_path = saver.save(sess, "./lm_2class.ckpt")
