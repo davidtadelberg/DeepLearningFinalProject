@@ -28,7 +28,7 @@ ydim = train_y.shape[1]
 image_width = 512 # Images were resized to fit this width earlier during preprocessing
 
 #In Python 3.5, change this to:
-#net_data = np.load(open("bvlc_alexnet.npy", "rb"), encoding="latin1").item()
+net_data = np.load(open("alexnet_weights/bvlc_alexnet.npy", "rb"), encoding="latin1").item()
 # net_data = np.load("bvlc_alexnet.npy").item()
 
 ''' Tommy: reading in TF records files '''

@@ -1,0 +1,1 @@
+floyd run --cpu --data davidtadelberg/datasets/davidtadelberg-alexnet-weights/1:alexnet_weights "python ConvNet.py"
