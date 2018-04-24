@@ -19,20 +19,21 @@ from scipy.misc import imread
 from caffe_classes import class_names
 import tensorflow as tf
 
-num_classes = 2 # 1000
-train_y = np.zeros((1, num_classes))
-test_y = np.zeros((1, num_classes))
+num_classes = 50 # 1000
+
 xdim = train_x.shape[1:]
 ydim = train_y.shape[1]
 
 image_width = 512 # Images were resized to fit this width earlier during preprocessing
 
-#In Python 3.5, change this to:
-#net_data = np.load(open("bvlc_alexnet.npy", "rb"), encoding="latin1").item()
-# net_data = np.load("bvlc_alexnet.npy").item()
+lr_newvars = 1e-3
+lr_pretrained = 2e-4
 
-''' Tommy: reading in TF records files '''
-# data_path = 'train.tfrecords'  # address to save the hdf5 file
+print_every = 10
+
+#In Python 3.5, change this to:
+net_data = np.load(open("/alexnet_weights/bvlc_alexnet.npy", "rb"), encoding="latin1").item()
+# net_data = np.load("bvlc_alexnet.npy").item()
 
 
 def conv(input, kernel, biases, k_h, k_w, c_o, s_h, s_w,  padding="VALID", group=1):
@@ -58,14 +59,13 @@ def conv(input, kernel, biases, k_h, k_w, c_o, s_h, s_w,  padding="VALID", group
 ################################################################################
 
 # The input image
-x = tf.placeholder(tf.float32, (None,) + xdim)
-
+x = tf.placeholder(tf.float32, shape=(image_width, image_width, 3))
 
 #conv1: First convolutional layer with 96 kernels of size 11 x 11
 #conv(11, 11, 96, 4, 4, padding='VALID', name='conv1')
 k_h = 11; k_w = 11; c_o = 96; s_h = 4; s_w = 4
-conv1W = tf.Variable(net_data["conv1"][0])
-conv1b = tf.Variable(net_data["conv1"][1])
+conv1W = tf.Variable(net_data["conv1"][0], trainable=False)
+conv1b = tf.Variable(net_data["conv1"][1], trainable=False))
 conv1_in = conv(x, conv1W, conv1b, k_h, k_w, c_o, s_h, s_w, padding="SAME", group=1)
 conv1 = tf.nn.relu(conv1_in)
 
@@ -86,9 +86,9 @@ maxpool1 = tf.nn.max_pool(lrn1, ksize=[1, k_h, k_w, 1], strides=[1, s_h, s_w, 1]
 
 #conv2: Second convolutional layer with 256 kernels of size 5 x 5
 #conv(5, 5, 256, 1, 1, group=2, name='conv2')
-k_h = 5; k_w = 5; c_o = 256; s_h = 1; s_w = 1; group = 2
-conv2W = tf.Variable(net_data["conv2"][0])
-conv2b = tf.Variable(net_data["conv2"][1])
+k_h = 5; k_w = 5; c_o = 256; s_h = 1; s_w = 1; group = 1
+conv2W = tf.Variable(net_data["conv2"][0], trainable=False))
+conv2b = tf.Variable(net_data["conv2"][1], trainable=False))
 conv2_in = conv(maxpool1, conv2W, conv2b, k_h, k_w, c_o, s_h, s_w, padding="SAME", group=group)
 conv2 = tf.nn.relu(conv2_in)
 
@@ -110,61 +110,68 @@ maxpool2 = tf.nn.max_pool(lrn2, ksize=[1, k_h, k_w, 1], strides=[1, s_h, s_w, 1]
 #conv3: Third convolutional layer
 #conv(3, 3, 384, 1, 1, name='conv3')
 k_h = 3; k_w = 3; c_o = 384; s_h = 1; s_w = 1; group = 1
-conv3W = tf.Variable(net_data["conv3"][0])
-conv3b = tf.Variable(net_data["conv3"][1])
+conv3W = tf.Variable(net_data["conv3"][0], trainable=False))
+conv3b = tf.Variable(net_data["conv3"][1], trainable=False))
 conv3_in = conv(maxpool2, conv3W, conv3b, k_h, k_w, c_o, s_h, s_w, padding="SAME", group=group)
 conv3 = tf.nn.relu(conv3_in)
 
-#conv4: Fourth convolutional layer
-#conv(3, 3, 384, 1, 1, group=2, name='conv4')
-k_h = 3; k_w = 3; c_o = 384; s_h = 1; s_w = 1; group = 2
-conv4W = tf.Variable(net_data["conv4"][0])
-conv4b = tf.Variable(net_data["conv4"][1])
-conv4_in = conv(conv3, conv4W, conv4b, k_h, k_w, c_o, s_h, s_w, padding="SAME", group=group)
-conv4 = tf.nn.relu(conv4_in)
+with tf.variable_scope("pretrained"):
+    #conv4: Fourth convolutional layer
+    #conv(3, 3, 384, 1, 1, group=2, name='conv4')
+    k_h = 3; k_w = 3; c_o = 384; s_h = 1; s_w = 1; group = 1
+    conv4W = tf.Variable(net_data["conv4"][0], trainable=True)) # Set to trainable
+    conv4b = tf.Variable(net_data["conv4"][1], trainable=True)) # Set to trainable
+    conv4_in = conv(conv3, conv4W, conv4b, k_h, k_w, c_o, s_h, s_w, padding="SAME", group=group)
+    conv4 = tf.nn.relu(conv4_in)
 
+# End of original AlexNet
 
-#conv5: Fifth convolutional layer
-#conv(3, 3, 256, 1, 1, group=2, name='conv5')
-k_h = 3; k_w = 3; c_o = 256; s_h = 1; s_w = 1; group = 2
-conv5W = tf.Variable(net_data["conv5"][0])
-conv5b = tf.Variable(net_data["conv5"][1])
-conv5_in = conv(conv4, conv5W, conv5b, k_h, k_w, c_o, s_h, s_w, padding="SAME", group=group)
-conv5 = tf.nn.relu(conv5_in)
+with tf.variable_scope("newvars"):
+    #conv5: Fifth convolutional layer
+    #conv(3, 3, 256, 1, 1, group=2, name='conv5')
+    k_h = 3; k_w = 3; c_o = 256; s_h = 1; s_w = 1; group = 1
+    conv5W = tf.get_variable("conv5W", shape=net_data["conv5"][0].shape, initializer=tf.contrib.layers.xavier_initializer())
+    conv5b = tf.get_variable("conv5W", shape=net_data["conv5"][1].shape, initializer=tf.contrib.layers.xavier_initializer())
+    conv5_in = conv(conv4, conv5W, conv5b, k_h, k_w, c_o, s_h, s_w, padding="SAME", group=group)
+    conv5 = tf.nn.relu(conv5_in)
 
-#maxpool5
-#max_pool(3, 3, 2, 2, padding='VALID', name='pool5')
-k_h = 3; k_w = 3; s_h = 2; s_w = 2; padding = 'VALID'
-maxpool5 = tf.nn.max_pool(conv5, ksize=[1, k_h, k_w, 1], strides=[1, s_h, s_w, 1], padding=padding)
+    #maxpool5
+    #max_pool(3, 3, 2, 2, padding='VALID', name='pool5')
+    k_h = 3; k_w = 3; s_h = 2; s_w = 2; padding = 'VALID'
+    maxpool5 = tf.nn.max_pool(conv5, ksize=[1, k_h, k_w, 1], strides=[1, s_h, s_w, 1], padding=padding)
 
-#fc6
-#fc(4096, name='fc6')
-fc6W = tf.Variable(net_data["fc6"][0])
-fc6b = tf.Variable(net_data["fc6"][1])
-fc6 = tf.nn.relu_layer(tf.reshape(maxpool5, [-1, int(np.prod(maxpool5.get_shape()[1:]))]), fc6W, fc6b)
+    #fc6
+    #fc(4096, name='fc6')
+    # fc6W = tf.Variable(net_data["fc6"][0], name="fc6W")
+    # fc6b = tf.Variable(net_data["fc6"][1], name="fc6b")
 
-#fc7
-#fc(4096, name='fc7')
-fc7W = tf.Variable(net_data["fc7"][0])
-fc7b = tf.Variable(net_data["fc7"][1])
-fc7 = tf.nn.relu_layer(fc6, fc7W, fc7b)
+    fc6W = tf.get_variable("fc6W", shape=net_data["fc6"][0].shape, initializer=tf.contrib.layers.xavier_initializer())
+    fc6b = tf.get_variable("fc6b", shape=net_data["fc6"][1].shape, initializer=tf.contrib.layers.xavier_initializer())
+    fc6 = tf.nn.relu_layer(tf.reshape(maxpool5, [-1, int(np.prod(maxpool5.get_shape()[1:]))]), fc6W, fc6b)
 
-#fc8
-#fc(1000, relu=False, name='fc8')
-fc8W = tf.Variable(net_data["fc8"][0])
-fc8b = tf.Variable(net_data["fc8"][1])
-fc8 = tf.nn.xw_plus_b(fc7, fc8W, fc8b)
+    #fc7
+    #fc(4096, name='fc7')
+    fc7W = tf.get_variable("fc7W", shape=(net_data["fc7"][0].shape[0], num_classes), initializer=tf.contrib.layers.xavier_initializer())
+    fc7b = tf.get_variable("fc7b", shape=(num_classes,), initializer=tf.contrib.layers.xavier_initializer())
+    fc7 = tf.nn.relu_layer(fc6, fc7W, fc7b)
 
-#prob
-#softmax(name='prob'))
-prob = tf.nn.softmax(fc8)
+    # #fc8
+    # #fc(1000, relu=False, name='fc8')
+    # fc8W = tf.Variable(net_data["fc8"][0], name="fc8W")
+    # fc8b = tf.Variable(net_data["fc8"][1], name="fc8")
+    # fc8 = tf.nn.xw_plus_b(fc7, fc8W, fc8b)
+
+    #prob
+    #softmax(name='prob'))
+    prob = tf.nn.softmax(fc7)
 
 ################################################################################
 # Initialize the network (can take a while):
 
-y = tf.placeholder(tf.float32, (None,) + ydim)
+y = tf.placeholder(tf.int32, shape=(num_classes,))
 
 init = tf.global_variables_initializer()
+
 with tf.name_scope("loss"):
 	# test_y?
     xentropy = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=y, logits=prob)
@@ -173,8 +180,18 @@ with tf.name_scope("loss"):
 with tf.name_scope("accuracy"):
 	accuracy = tf.metrics.accuracy(labels=tf.argmax(labels,0), predictions=tf.argmax(prob, 0))
 
-optimizer = tf.train.MomentumOptimizer(0.1, momentum=0.9)
-training_op = optimizer.minimize(loss)
+
+global_step = tf.Variable(0, trainable=False, name='global_step')
+
+# Define 2 different optimizers, to train the pretrained and the randomly initialized weights, respectively.
+pretrained_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, "pretrained")
+new_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, "newvars")
+
+pretrained_optimizer = tf.train.AdamOptimizer(learning_rate=lr_pretrained)
+newvars_optimizer = tf.train.AdamOptimizer(learning_rate=lr_newvars)
+
+pretrained_train_op = pretrained_optimizer.minimize(loss, var_list=pretrained_vars, global_step=global_step)
+newvars_train_op = newvards_optimizer.minimize(loss, var_list=new_vars, global_step=global_step)
 
 def read_preprocess(num_epochs):
 
@@ -215,11 +232,22 @@ with tf.Session() as sess:
     coord = tf.train.Coordinator()
     threads = tf.train.start_queue_runners(sess=sess, coord=coord)
 
-        with coord.stop_on_exception():
-            while not coord.should_stop():
-                image_batch, label_batch = sess.run(batch)
+    with coord.stop_on_exception():
+        while not coord.should_stop():
+            image_batch, label_batch = sess.run(batch)
 
+            feed_dict = {
+                x: image_batch,
+                y: label_batch
+            }
 
+            fetches = [newvars_train_op, pretrained_train_op, loss, global_step]
+            _, _, loss_val, i = sess.run(fetches, feed_dict=feed_dict)
+
+            if i % print_every == 0:
+                print(i, 'loss = %0.4f' % loss_val, sep='\t')
+    
+    coord.join(threads)
 
     # for epoch in range(n_epochs):
     #     for iteration in range(train_dataset.num_examples // batch_size):

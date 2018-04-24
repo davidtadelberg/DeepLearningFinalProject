@@ -208,12 +208,12 @@ def _process_image(filename, coder):
   #   print('Converting PNG to JPEG for %s' % filename)
   #   image_data = coder.png_to_jpeg(image_data)
 
+  # print(type(image_data))
+  # exit()
+
   # # Decode the RGB JPEG.
   # image = coder.decode_jpeg(image_data)
-  
-  # print(image.shape)
-  # print(type(image))
-  # exit()
+
 
   image = openAndResize(filename)
 
@@ -222,6 +222,8 @@ def _process_image(filename, coder):
   height = image.shape[0]
   width = image.shape[1]
   assert image.shape[2] == 3
+
+  image_data = image.tobytes()
 
   return image_data, height, width
 
