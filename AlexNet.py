@@ -19,11 +19,8 @@ from scipy.misc import imread
 from caffe_classes import class_names
 import tensorflow as tf
 
-train_x = np.zeros((1, 227,227,3)).astype(np.float32)
-
 num_classes = 2 # 1000
 train_y = np.zeros((1, num_classes))
-
 test_y = np.zeros((1, num_classes))
 xdim = train_x.shape[1:]
 ydim = train_y.shape[1]
