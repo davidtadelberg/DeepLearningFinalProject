@@ -32,7 +32,11 @@ lr_pretrained = 2e-4
 print_every = 10
 
 #In Python 3.5, change this to:
+<<<<<<< HEAD:AlexNet.py
 net_data = np.load(open("/alexnet_weights/bvlc_alexnet.npy", "rb"), encoding="latin1").item()
+=======
+net_data = np.load(open("alexnet_weights/bvlc_alexnet.npy", "rb"), encoding="latin1").item()
+>>>>>>> fe31244f97ccf664ceb9d82d88c9ef6fadca0b07:ConvNet.py
 # net_data = np.load("bvlc_alexnet.npy").item()
 
 
