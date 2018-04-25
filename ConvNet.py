@@ -200,7 +200,7 @@ newvars_train_op = newvards_optimizer.minimize(loss, var_list=new_vars, global_s
 def read_preprocess(num_epochs):
 
     # Read in data from tfrecord files
-    tfrecord_dirs = ["./tfrecords/"]
+    tfrecord_dirs = ["train"]
 
     filename_queue = tf.train.string_input_producer(filenames,
         num_epochs=num_epochs, shuffle=True)
@@ -250,14 +250,14 @@ with tf.Session() as sess:
 
             if i % print_every == 0:
                 print(i, 'loss = %0.4f' % loss_val, sep='\t')
-    
+
     coord.join(threads)
 
     # for epoch in range(n_epochs):
     #     for iteration in range(train_dataset.num_examples // batch_size):
     #         X_batch, y_batch = train_dataset.next_batch(batch_size)
-    #         sess.run(training_op, feed_dict={training: True, x: X_batch, y: y_batch})
-		
+    #         sess.run(training_op, feed_dict={training: True, x: X_batch, y: y_batch)
+
     #     acc_test = accuracy.eval(feed_dict={x: test_dataset.images, y: test_dataset.labels})
     #     print(epoch, "Test accuracy:", acc_test)
 
