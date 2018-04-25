@@ -16,10 +16,9 @@ import os
 import time
 import numpy as np
 from scipy.misc import imread
-from caffe_classes import class_names
 import tensorflow as tf
 
-printf("running now...")
+print("running now...")
 
 num_classes = 50 # 1000
 
@@ -68,7 +67,7 @@ x = tf.placeholder(tf.float32, shape=(image_width, image_width, 3))
 #conv(11, 11, 96, 4, 4, padding='VALID', name='conv1')
 k_h = 11; k_w = 11; c_o = 96; s_h = 4; s_w = 4
 conv1W = tf.Variable(net_data["conv1"][0], trainable=False)
-conv1b = tf.Variable(net_data["conv1"][1], trainable=False))
+conv1b = tf.Variable(net_data["conv1"][1], trainable=False)
 conv1_in = conv(x, conv1W, conv1b, k_h, k_w, c_o, s_h, s_w, padding="SAME", group=1)
 conv1 = tf.nn.relu(conv1_in)
 
@@ -90,8 +89,8 @@ maxpool1 = tf.nn.max_pool(lrn1, ksize=[1, k_h, k_w, 1], strides=[1, s_h, s_w, 1]
 #conv2: Second convolutional layer with 256 kernels of size 5 x 5
 #conv(5, 5, 256, 1, 1, group=2, name='conv2')
 k_h = 5; k_w = 5; c_o = 256; s_h = 1; s_w = 1; group = 1
-conv2W = tf.Variable(net_data["conv2"][0], trainable=False))
-conv2b = tf.Variable(net_data["conv2"][1], trainable=False))
+conv2W = tf.Variable(net_data["conv2"][0], trainable=False)
+conv2b = tf.Variable(net_data["conv2"][1], trainable=False)
 conv2_in = conv(maxpool1, conv2W, conv2b, k_h, k_w, c_o, s_h, s_w, padding="SAME", group=group)
 conv2 = tf.nn.relu(conv2_in)
 
@@ -113,8 +112,8 @@ maxpool2 = tf.nn.max_pool(lrn2, ksize=[1, k_h, k_w, 1], strides=[1, s_h, s_w, 1]
 #conv3: Third convolutional layer
 #conv(3, 3, 384, 1, 1, name='conv3')
 k_h = 3; k_w = 3; c_o = 384; s_h = 1; s_w = 1; group = 1
-conv3W = tf.Variable(net_data["conv3"][0], trainable=False))
-conv3b = tf.Variable(net_data["conv3"][1], trainable=False))
+conv3W = tf.Variable(net_data["conv3"][0], trainable=False)
+conv3b = tf.Variable(net_data["conv3"][1], trainable=False)
 conv3_in = conv(maxpool2, conv3W, conv3b, k_h, k_w, c_o, s_h, s_w, padding="SAME", group=group)
 conv3 = tf.nn.relu(conv3_in)
 
@@ -122,8 +121,8 @@ with tf.variable_scope("pretrained"):
     #conv4: Fourth convolutional layer
     #conv(3, 3, 384, 1, 1, group=2, name='conv4')
     k_h = 3; k_w = 3; c_o = 384; s_h = 1; s_w = 1; group = 1
-    conv4W = tf.Variable(net_data["conv4"][0], trainable=True)) # Set to trainable
-    conv4b = tf.Variable(net_data["conv4"][1], trainable=True)) # Set to trainable
+    conv4W = tf.Variable(net_data["conv4"][0], trainable=True) # Set to trainable
+    conv4b = tf.Variable(net_data["conv4"][1], trainable=True) # Set to trainable
     conv4_in = conv(conv3, conv4W, conv4b, k_h, k_w, c_o, s_h, s_w, padding="SAME", group=group)
     conv4 = tf.nn.relu(conv4_in)
 
@@ -180,12 +179,12 @@ saver = tf.train.Saver()
 
 
 with tf.name_scope("loss"):
-	# test_y?
+    # test_y?
     xentropy = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=y, logits=prob)
     loss = tf.reduce_mean(xentropy, name="loss")
-	
+    
 with tf.name_scope("accuracy"):
-	accuracy = tf.metrics.accuracy(labels=tf.argmax(labels,0), predictions=tf.argmax(prob, 0))
+    accuracy = tf.metrics.accuracy(labels=tf.argmax(labels,0), predictions=tf.argmax(prob, 0))
 
 batch = setup_input_pipeline()
 global_step = tf.Variable(0, trainable=False, name='global_step')
@@ -254,12 +253,12 @@ with tf.Session() as sess:
             _, _, loss_val, i = sess.run(fetches, feed_dict=feed_dict)
 
             if i % print_every == 0:
-            	acc_test = accuracy.eval(feed_dict={x: image_batch, y: label_batch})
-                print(i, 'loss = %0.4f' % loss_val, "Test accuracy:", acc_test, sep='\t')
+                acc_test = accuracy.eval(feed_dict={x: image_batch, y: label_batch})
+                print(i, '\tloss = %0.4f' % loss_val + "\tTest accuracy: " + str(acc_test))
 
             if i % save_every == 0:
-                    print('Saving checkpoint')
-                    saver.save(sess, "/output/model" + str(i) + ".ckpt")
+            	print('Saving checkpoint')
+            	saver.save(sess, "/output/model" + str(i) + ".ckpt")
 
     saver.save(sess, "/output/model_final.ckpt")
     coord.join(threads)
@@ -268,7 +267,7 @@ with tf.Session() as sess:
     #     for iteration in range(train_dataset.num_examples // batch_size):
     #         X_batch, y_batch = train_dataset.next_batch(batch_size)
     #         sess.run(training_op, feed_dict={training: True, x: X_batch, y: y_batch})
-		
+        
     #     acc_test = accuracy.eval(feed_dict={x: test_dataset.images, y: test_dataset.labels})
     #     print(epoch, "Test accuracy:", acc_test)
 
