@@ -82,7 +82,6 @@ lrn1 = tf.nn.local_response_normalization(conv1,
 k_h = 3; k_w = 3; s_h = 2; s_w = 2; padding = 'VALID'
 maxpool1 = tf.nn.max_pool(lrn1, ksize=[1, k_h, k_w, 1], strides=[1, s_h, s_w, 1], padding=padding)
 
-
 #conv2: Second convolutional layer with 256 kernels of size 5 x 5
 #conv(5, 5, 256, 1, 1, group=2, name='conv2')
 k_h = 5; k_w = 5; c_o = 256; s_h = 1; s_w = 1; group = 2
@@ -90,7 +89,6 @@ conv2W = tf.Variable(net_data["conv2"][0], trainable=False)
 conv2b = tf.Variable(net_data["conv2"][1], trainable=False)
 conv2_in = conv(maxpool1, conv2W, conv2b, k_h, k_w, c_o, s_h, s_w, padding="SAME", group=group)
 conv2 = tf.nn.relu(conv2_in)
-
 
 #lrn2
 #lrn(2, 2e-05, 0.75, name='norm2')
@@ -231,6 +229,8 @@ with tf.Session() as sess:
         while not coord.should_stop():
             
             image_batch, label_batch = sess.run(batch)
+            label_batch = label_batch - 1
+
             feed_dict = {
                 x: image_batch,
                 y: label_batch
@@ -240,8 +240,11 @@ with tf.Session() as sess:
             _, _, loss_val, i = sess.run(fetches, feed_dict=feed_dict)
 
             if i % print_every == 0:
-                acc_test = accuracy.eval(feed_dict={x: image_batch, y: label_batch})
-                print(i, '\tloss = %0.4f' % loss_val + "\tTest accuracy: " + str(acc_test))
+                # acc_test = accuracy.eval(feed_dict={x: image_batch, y: label_batch})
+
+                sess.run([acc_op], feed_dict={x: image_batch, y: label_batch})
+                acc_test_val = sess.run(accuracy)
+                print(i, '\tloss = %0.4f' % loss_val + "\tTest accuracy: " + str(acc_test_val))
 
             if i % save_every == 0:
             	print('Saving checkpoint')
