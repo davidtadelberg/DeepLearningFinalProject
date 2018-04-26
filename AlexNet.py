@@ -140,10 +140,6 @@ with tf.variable_scope("newvars"):
     maxpool5 = tf.nn.max_pool(conv5, ksize=[1, k_h, k_w, 1], strides=[1, s_h, s_w, 1], padding=padding)
 
     #fc6
-    #fc(4096, name='fc6')
-    # fc6W = tf.Variable(net_data["fc6"][0], name="fc6W")
-    # fc6b = tf.Variable(net_data["fc6"][1], name="fc6b")
-
     # Because original shapes were different, when creating FC layers we need to come up with the right shapes.
     flattened_units_maxpool5 = int(np.prod(maxpool5.get_shape()[1:]))
     fc6W = tf.get_variable("fc6W", shape=(flattened_units_maxpool5, net_data["fc7"][0].shape[0]), initializer=tf.contrib.layers.xavier_initializer())
@@ -171,7 +167,7 @@ with tf.variable_scope("newvars"):
 
 def read_preprocess(num_epochs):
     # Read in data from tfrecord files
-    filenames = tf.train.match_filenames_once(os.path.join('/mock_data/', '*.tfrecords'))
+    filenames = tf.train.match_filenames_once(os.path.join('/data/', '*.tfrecords'))
     filename_queue = tf.train.string_input_producer(filenames,
         num_epochs=num_epochs, shuffle=True)
 
@@ -199,18 +195,17 @@ def setup_input_pipeline():
         min_after_dequeue=batch_size*2)
 
 y = tf.placeholder(tf.int32, shape=(None,))
+y_one_hot = tf.one_hot(y, num_classes, on_value=1, off_value=0)
 
 # create a saver
 saver = tf.train.Saver()
 
-
 with tf.name_scope("loss"):
-    # test_y?
-    xentropy = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=y, logits=fc7)
+    xentropy = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=y, logits=fc8)
     loss = tf.reduce_mean(xentropy, name="loss")
     
 with tf.name_scope("accuracy"):
-    accuracy, update_op = tf.metrics.accuracy(labels=y, predictions=tf.argmax(prob, 0))
+    accuracy, acc_op = tf.metrics.accuracy(labels=tf.argmax(y_one_hot, 0), predictions=tf.argmax(fc8, 0))
 
 batch = setup_input_pipeline()
 global_step = tf.Variable(0, trainable=False, name='global_step')
@@ -225,15 +220,12 @@ newvars_optimizer = tf.train.AdamOptimizer(learning_rate=lr_newvars)
 pretrained_train_op = pretrained_optimizer.minimize(loss, var_list=pretrained_vars, global_step=global_step)
 newvars_train_op = newvars_optimizer.minimize(loss, var_list=new_vars)
 
-
-
 with tf.Session() as sess:
     sess.run(tf.local_variables_initializer())
     sess.run(tf.global_variables_initializer())
     # Create TF Coordinator
     coord = tf.train.Coordinator()
     threads = tf.train.start_queue_runners(sess=sess, coord=coord)
-
 
     with coord.stop_on_exception():
         while not coord.should_stop():
