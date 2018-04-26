@@ -28,7 +28,7 @@ image_width = 512 # Images were resized to fit this width earlier during preproc
 lr_newvars = 1e-3
 lr_pretrained = 2e-4
 
-num_epochs = 2
+num_epochs = 8
 print_every = 10
 save_every = 1000
 
@@ -152,26 +152,26 @@ with tf.variable_scope("newvars"):
 
     #fc7
     #fc(4096, name='fc7')
-    fc7W = tf.get_variable("fc7W", shape=(net_data["fc7"][0].shape[0], num_classes), initializer=tf.contrib.layers.xavier_initializer())
-    fc7b = tf.get_variable("fc7b", shape=(num_classes,), initializer=tf.contrib.layers.xavier_initializer())
+    fc8_units = net_data["fc8"][0].shape[0]
+    fc7W = tf.get_variable("fc7W", shape=(net_data["fc7"][0].shape[0], fc8_units), initializer=tf.contrib.layers.xavier_initializer())
+    fc7b = tf.get_variable("fc7b", shape=(fc8_units,), initializer=tf.contrib.layers.xavier_initializer())
     fc7 = tf.nn.relu_layer(fc6, fc7W, fc7b)
 
     # #fc8
-    # #fc(1000, relu=False, name='fc8')
-    # fc8W = tf.Variable(net_data["fc8"][0], name="fc8W")
-    # fc8b = tf.Variable(net_data["fc8"][1], name="fc8")
-    # fc8 = tf.nn.xw_plus_b(fc7, fc8W, fc8b)
+    fc8W = tf.get_variable("fc8W", shape=(fc8_units, num_classes), initializer=tf.contrib.layers.xavier_initializer())
+    fc8b = tf.get_variable("fc8b", shape=(num_classes,), initializer=tf.contrib.layers.xavier_initializer())
+    fc8 = tf.nn.xw_plus_b(fc7, fc8W, fc8b) # Logits
 
     #prob
     #softmax(name='prob'))
-    prob = tf.nn.softmax(fc7)
+    prob = tf.nn.softmax(fc8)
 
 ################################################################################
 # Initialize the network (can take a while):
 
 def read_preprocess(num_epochs):
     # Read in data from tfrecord files
-    filenames = tf.train.match_filenames_once(os.path.join('/mock_data/', '*'))
+    filenames = tf.train.match_filenames_once(os.path.join('/mock_data/', '*.tfrecords'))
     filename_queue = tf.train.string_input_producer(filenames,
         num_epochs=num_epochs, shuffle=True)
 
@@ -199,8 +199,6 @@ def setup_input_pipeline():
         min_after_dequeue=batch_size*2)
 
 y = tf.placeholder(tf.int32, shape=(None,))
-
-# init = tf.global_variables_initializer()
 
 # create a saver
 saver = tf.train.Saver()
@@ -248,8 +246,6 @@ with tf.Session() as sess:
 
             fetches = [newvars_train_op, pretrained_train_op, loss, global_step]
             _, _, loss_val, i = sess.run(fetches, feed_dict=feed_dict)
-
-            print("Step: %d" % i)
 
             if i % print_every == 0:
                 acc_test = accuracy.eval(feed_dict={x: image_batch, y: label_batch})
