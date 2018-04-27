@@ -1,0 +1,14 @@
+\section{Problem Definition}
+We seek to train a neural net that will classify an image of a landmark to the appropriate landmark. For example, when the following image of the Leshan Giant Buddha is passed to the neural network, it should output a high probability that the correct class is 9605, which is the landmark id corresponding to the Leshan Giant Buddha.
+
+\begin{center}
+\caption{A photo of the Leshan Giant Buddha}	
+
+\includegraphics[scale=0.4]{leshan_giant_buddha.JPG}
+\end{center}
+
+%https://lh6.googleusercontent.com/-0QDDca7PRDU/SCNF1sBElZI/AAAAAAAAChE/ucRf-zYp0XU/s1600/
+%
+\end{figure}
+
+During preprocessing, we resize the input image. So, images $X$ passed to the this classifier lie within $L: \mathbb{R}^{28x28}$. There are $50$ classes of landmarks in our dataset, so our function $f$ outputs probabilities $Y \in [0,1]^{50}$. Our objective is to maximize the probability that the correct landmark class is  the top landmark class predicted by our network. We felt that this objective is appropriate as there should be only one landmark in an image.
