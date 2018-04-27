@@ -1,0 +1,1 @@
+floyd run --gpu2 --data davidtadelberg/datasets/trained_weights:my_weights --data davidtadelberg/datasets/test:data --data davidtadelberg/datasets/davidtadelberg-alexnet-weights/:weights 'python AlexDropoutNewTest.py'

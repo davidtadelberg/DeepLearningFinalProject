@@ -1,0 +1,1 @@
+floyd run --gpu2 --data davidtadelberg/datasets/davidtadelberg-alexnet-weights/:weights --data davidtadelberg/datasets/train:data 'python AlexNet.py'

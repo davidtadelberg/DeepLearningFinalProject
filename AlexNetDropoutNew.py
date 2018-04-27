@@ -28,6 +28,9 @@ image_width = 512 # Images were resized to fit this width earlier during preproc
 lr_newvars = 1e-3
 lr_pretrained = 2e-4
 lambda_l2 = 0.1
+dropout_rate=0.2
+
+training = tf.placeholder_with_default(False, shape=(), name='training')
 
 num_epochs = 8
 print_every = 10
@@ -129,6 +132,7 @@ with tf.variable_scope("newvars"):
     #conv(3, 3, 256, 1, 1, group=2, name='conv5')
     k_h = 3; k_w = 3; c_o = 256; s_h = 1; s_w = 1; group = 2
     conv5W = tf.get_variable("conv5W", shape=net_data["conv5"][0].shape, initializer=tf.contrib.layers.xavier_initializer())
+    conv5W = tf.layers.dropout(conv5W, dropout_rate, training=training)
     conv5b = tf.get_variable("conv5b", shape=net_data["conv5"][1].shape, initializer=tf.contrib.layers.xavier_initializer())
     conv5_in = conv(conv4, conv5W, conv5b, k_h, k_w, c_o, s_h, s_w, padding="SAME", group=group)
     conv5 = tf.nn.relu(conv5_in)
@@ -142,6 +146,7 @@ with tf.variable_scope("newvars"):
     # Because original shapes were different, when creating FC layers we need to come up with the right shapes.
     flattened_units_maxpool5 = int(np.prod(maxpool5.get_shape()[1:]))
     fc6W = tf.get_variable("fc6W", shape=(flattened_units_maxpool5, net_data["fc7"][0].shape[0]), initializer=tf.contrib.layers.xavier_initializer())
+    fc6W = tf.layers.dropout(fc6W, dropout_rate, training=training)
     fc6b = tf.get_variable("fc6b", shape=(net_data["fc7"][0].shape[0],), initializer=tf.contrib.layers.xavier_initializer())
     fc6 = tf.nn.relu_layer(tf.reshape(maxpool5, [-1, flattened_units_maxpool5]), fc6W, fc6b)
 
@@ -149,11 +154,13 @@ with tf.variable_scope("newvars"):
     #fc(4096, name='fc7')
     fc8_units = net_data["fc8"][0].shape[0]
     fc7W = tf.get_variable("fc7W", shape=(net_data["fc7"][0].shape[0], fc8_units), initializer=tf.contrib.layers.xavier_initializer())
+    fc7W = tf.layers.dropout(fc7W, dropout_rate, training=training)
     fc7b = tf.get_variable("fc7b", shape=(fc8_units,), initializer=tf.contrib.layers.xavier_initializer())
     fc7 = tf.nn.relu_layer(fc6, fc7W, fc7b)
 
     # #fc8
     fc8W = tf.get_variable("fc8W", shape=(fc8_units, num_classes), initializer=tf.contrib.layers.xavier_initializer())
+    fc8W = tf.layers.dropout(fc8W, dropout_rate, training=training)
     fc8b = tf.get_variable("fc8b", shape=(num_classes,), initializer=tf.contrib.layers.xavier_initializer())
     fc8 = tf.nn.xw_plus_b(fc7, fc8W, fc8b) # Logits
 
@@ -242,7 +249,8 @@ with tf.Session() as sess:
 
             feed_dict = {
                 x: image_batch,
-                y: label_batch
+                y: label_batch,
+                training: True
             }
 
             fetches = [newvars_train_op, pretrained_train_op, loss, global_step]
@@ -251,7 +259,7 @@ with tf.Session() as sess:
             if i % print_every == 0:
                 # acc_test = accuracy.eval(feed_dict={x: image_batch, y: label_batch})
 
-                sess.run([acc_op], feed_dict={x: image_batch, y: label_batch})
+                sess.run([acc_op], feed_dict={x: image_batch, y: label_batch, training: False})
                 acc_test_val = sess.run(accuracy)
                 print(i, '\tloss = %0.4f' % loss_val + "\tTest accuracy: " + str(acc_test_val))
 

@@ -28,11 +28,16 @@ image_width = 512 # Images were resized to fit this width earlier during preproc
 lr_newvars = 1e-3
 lr_pretrained = 2e-4
 lambda_l2 = 0.1
+dropout_rate=0.2
+
+training = tf.placeholder_with_default(False, shape=(), name='training')
 
 num_epochs = 8
 print_every = 10
 save_every = 1000
 
+tf_checkpoint_dir = "/my_weights/"
+tf_data_dir = "/data/"
 #In Python 3.5, change this to:
 net_data = np.load(open("/weights/bvlc_alexnet.npy", "rb"), encoding="latin1").item()
 # net_data = np.load("bvlc_alexnet.npy").item()
@@ -129,6 +134,7 @@ with tf.variable_scope("newvars"):
     #conv(3, 3, 256, 1, 1, group=2, name='conv5')
     k_h = 3; k_w = 3; c_o = 256; s_h = 1; s_w = 1; group = 2
     conv5W = tf.get_variable("conv5W", shape=net_data["conv5"][0].shape, initializer=tf.contrib.layers.xavier_initializer())
+    conv5W = tf.layers.dropout(conv5W, dropout_rate, training=training)
     conv5b = tf.get_variable("conv5b", shape=net_data["conv5"][1].shape, initializer=tf.contrib.layers.xavier_initializer())
     conv5_in = conv(conv4, conv5W, conv5b, k_h, k_w, c_o, s_h, s_w, padding="SAME", group=group)
     conv5 = tf.nn.relu(conv5_in)
@@ -142,6 +148,7 @@ with tf.variable_scope("newvars"):
     # Because original shapes were different, when creating FC layers we need to come up with the right shapes.
     flattened_units_maxpool5 = int(np.prod(maxpool5.get_shape()[1:]))
     fc6W = tf.get_variable("fc6W", shape=(flattened_units_maxpool5, net_data["fc7"][0].shape[0]), initializer=tf.contrib.layers.xavier_initializer())
+    fc6W = tf.layers.dropout(fc6W, dropout_rate, training=training)
     fc6b = tf.get_variable("fc6b", shape=(net_data["fc7"][0].shape[0],), initializer=tf.contrib.layers.xavier_initializer())
     fc6 = tf.nn.relu_layer(tf.reshape(maxpool5, [-1, flattened_units_maxpool5]), fc6W, fc6b)
 
@@ -149,11 +156,13 @@ with tf.variable_scope("newvars"):
     #fc(4096, name='fc7')
     fc8_units = net_data["fc8"][0].shape[0]
     fc7W = tf.get_variable("fc7W", shape=(net_data["fc7"][0].shape[0], fc8_units), initializer=tf.contrib.layers.xavier_initializer())
+    fc7W = tf.layers.dropout(fc7W, dropout_rate, training=training)
     fc7b = tf.get_variable("fc7b", shape=(fc8_units,), initializer=tf.contrib.layers.xavier_initializer())
     fc7 = tf.nn.relu_layer(fc6, fc7W, fc7b)
 
     # #fc8
     fc8W = tf.get_variable("fc8W", shape=(fc8_units, num_classes), initializer=tf.contrib.layers.xavier_initializer())
+    fc8W = tf.layers.dropout(fc8W, dropout_rate, training=training)
     fc8b = tf.get_variable("fc8b", shape=(num_classes,), initializer=tf.contrib.layers.xavier_initializer())
     fc8 = tf.nn.xw_plus_b(fc7, fc8W, fc8b) # Logits
 
@@ -161,14 +170,17 @@ with tf.variable_scope("newvars"):
     #softmax(name='prob'))
     prob = tf.nn.softmax(fc8)
 
-################################################################################
-# Initialize the network (can take a while):
 
-def read_preprocess(num_epochs):
+
+# Set up model and data
+saver = tf.train.Saver()
+
+
+def read_preprocess():
     # Read in data from tfrecord files
-    filenames = tf.train.match_filenames_once(os.path.join('/data/', '*.tfrecords'))
+    filenames = tf.train.match_filenames_once(os.path.join(tf_data_dir, '*.tfrecords'))
     filename_queue = tf.train.string_input_producer(filenames,
-        num_epochs=num_epochs, shuffle=True)
+        num_epochs=1, shuffle=False)
 
     reader = tf.TFRecordReader()
 
@@ -187,46 +199,21 @@ def read_preprocess(num_epochs):
     return image, label
 
 def setup_input_pipeline():
-    single_image, single_label = read_preprocess(num_epochs)
-    return tf.train.shuffle_batch([single_image, single_label],
+    single_image, single_label = read_preprocess()
+    return tf.train.batch([single_image, single_label],
         batch_size=batch_size,
-        capacity=1000,
-        min_after_dequeue=batch_size*2)
+        capacity=1000
+    )
+
 
 y = tf.placeholder(tf.int32, shape=(None,))
 y_one_hot = tf.one_hot(y, num_classes, on_value=1, off_value=0)
 
-# create a saver
-saver = tf.train.Saver()
-
-# Define 2 different optimizers, to train the pretrained and the randomly initialized weights, respectively.
-pretrained_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, "pretrained")
-new_vars = tf.get_collection(tf.GraphKeys.TRAINABLE_VARIABLES, "newvars")
-
-with tf.name_scope("loss"):
-    xentropy = tf.nn.sparse_softmax_cross_entropy_with_logits(labels=y, logits=fc8)
-    loss = tf.reduce_mean(xentropy, name="loss")
-
-    regularizer = tf.contrib.layers.l2_regularizer(lambda_l2)
-    penalty_pre = tf.contrib.layers.apply_regularization(regularizer, pretrained_vars)
-    penalty_new = tf.contrib.layers.apply_regularization(regularizer, new_vars)
-
-    loss = loss + penalty_pre + penalty_new
-    
 with tf.name_scope("accuracy"):
+    # Labels is going to be batch_size:
     accuracy, acc_op = tf.metrics.accuracy(labels=tf.argmax(y_one_hot, 0), predictions=tf.argmax(fc8, 0))
 
 batch = setup_input_pipeline()
-global_step = tf.Variable(0, trainable=False, name='global_step')
-
-
-
-pretrained_optimizer = tf.train.AdamOptimizer(learning_rate=lr_pretrained)
-newvars_optimizer = tf.train.AdamOptimizer(learning_rate=lr_newvars)
-
-pretrained_train_op = pretrained_optimizer.minimize(loss, var_list=pretrained_vars, global_step=global_step)
-newvars_train_op = newvars_optimizer.minimize(loss, var_list=new_vars)
-
 with tf.Session() as sess:
     sess.run(tf.local_variables_initializer())
     sess.run(tf.global_variables_initializer())
@@ -234,40 +221,22 @@ with tf.Session() as sess:
     coord = tf.train.Coordinator()
     threads = tf.train.start_queue_runners(sess=sess, coord=coord)
 
+    saver.restore(sess, os.path.join(tf_checkpoint_dir, 'model_final.ckpt'))
+
     with coord.stop_on_exception():
         while not coord.should_stop():
-            
             image_batch, label_batch = sess.run(batch)
-            label_batch = label_batch - 1
+            label_batch -= 1
 
             feed_dict = {
                 x: image_batch,
-                y: label_batch
+                y: label_batch,
+				training: False
             }
 
-            fetches = [newvars_train_op, pretrained_train_op, loss, global_step]
-            _, _, loss_val, i = sess.run(fetches, feed_dict=feed_dict)
+            # Compute accuracy with every batch
+            sess.run(acc_op, feed_dict=feed_dict)
+            accuracy_val = sess.run(accuracy)
+            print("Test accuracy (cumulative): %0.4f" % accuracy_val)
 
-            if i % print_every == 0:
-                # acc_test = accuracy.eval(feed_dict={x: image_batch, y: label_batch})
-
-                sess.run([acc_op], feed_dict={x: image_batch, y: label_batch})
-                acc_test_val = sess.run(accuracy)
-                print(i, '\tloss = %0.4f' % loss_val + "\tTest accuracy: " + str(acc_test_val))
-
-            if i % save_every == 0:
-            	print('Saving checkpoint')
-            	saver.save(sess, "/output/model" + str(i) + ".ckpt")
-
-    saver.save(sess, "/output/model_final.ckpt")
     coord.join(threads)
-
-    # for epoch in range(n_epochs):
-    #     for iteration in range(train_dataset.num_examples // batch_size):
-    #         X_batch, y_batch = train_dataset.next_batch(batch_size)
-    #         sess.run(training_op, feed_dict={training: True, x: X_batch, y: y_batch})
-        
-    #     acc_test = accuracy.eval(feed_dict={x: test_dataset.images, y: test_dataset.labels})
-    #     print(epoch, "Test accuracy:", acc_test)
-
-    # save_path = saver.save(sess, "./lm_2class.ckpt")
