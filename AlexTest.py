@@ -6,6 +6,8 @@ import numpy as np
 image_width = 512
 batch_size = 128
 
+tf_checkpoint_dir = "/weights/"
+tf_data_dir = "/data/"
 #In Python 3.5, change this to:
 net_data = np.load(open("/weights/bvlc_alexnet.npy", "rb"), encoding="latin1").item()
 # net_data = np.load("bvlc_alexnet.npy").item()
@@ -142,10 +144,9 @@ with tf.name_scope("accuracy"):
 saver = tf.train.Saver()
 batch = setup_input_pipeline()
 
-
 def read_preprocess():
     # Read in data from tfrecord files
-    filenames = tf.train.match_filenames_once(os.path.join('/data/', '*.tfrecords'))
+    filenames = tf.train.match_filenames_once(os.path.join(tf_data_dir, '*.tfrecords'))
     filename_queue = tf.train.string_input_producer(filenames,
         num_epochs=1, shuffle=False)
 
@@ -179,7 +180,7 @@ with tf.Session() as sess:
     coord = tf.train.Coordinator()
     threads = tf.train.start_queue_runners(sess=sess, coord=coord)
 
-    saver.restore(sess, os.path.join(tf_checkpoint_dir, 'final_model')))
+    saver.restore(sess, os.path.join(tf_checkpoint_dir, 'model_final')))
 
     with coord.stop_on_exception():
         while not coord.should_stop():
