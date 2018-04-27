@@ -1,12 +1,14 @@
 # Test script for AlexTest
+import os
 import tensorflow as tf
 import numpy as np
 
 # Model variables
 image_width = 512
 batch_size = 128
+num_classes = 50
 
-tf_checkpoint_dir = "/weights/"
+tf_checkpoint_dir = "/my_weights/"
 tf_data_dir = "/data/"
 #In Python 3.5, change this to:
 net_data = np.load(open("/weights/bvlc_alexnet.npy", "rb"), encoding="latin1").item()
@@ -36,6 +38,7 @@ def conv(input, kernel, biases, k_h, k_w, c_o, s_h, s_w,  padding="VALID", group
 # The input image
 x = tf.placeholder(tf.float32, shape=(None, image_width, image_width, 3))
 y = tf.placeholder(tf.int32, shape=(None,)) # Label
+y_one_hot = tf.one_hot(y, num_classes, on_value=1, off_value=0)
 
 #conv1: First convolutional layer with 96 kernels of size 11 x 11
 #conv(11, 11, 96, 4, 4, padding='VALID', name='conv1')
@@ -138,11 +141,12 @@ with tf.variable_scope("newvars"):
     prob = tf.nn.softmax(fc8)
 
 with tf.name_scope("accuracy"):
-    accuracy, acc_op = tf.metrics.accuracy(labels=y, predictions=tf.argmax(fc8, 0))
+    # Labels is going to be batch_size:
+    accuracy, acc_op = tf.metrics.accuracy(labels=tf.argmax(y_one_hot, 0), predictions=tf.argmax(fc8, 0))
 
 # Set up model and data
 saver = tf.train.Saver()
-batch = setup_input_pipeline()
+
 
 def read_preprocess():
     # Read in data from tfrecord files
@@ -167,20 +171,22 @@ def read_preprocess():
     return image, label
 
 def setup_input_pipeline():
-    single_image, single_label = read_preprocess(num_epochs)
+    single_image, single_label = read_preprocess()
     return tf.train.batch([single_image, single_label],
         batch_size=batch_size,
         capacity=1000
     )
 
-accuracy, update_op = tf.metrics.accuracy(labels=y, predictions=x)
+batch = setup_input_pipeline()
 
 with tf.Session() as sess:
+    sess.run(tf.local_variables_initializer())
+    sess.run(tf.global_variables_initializer())
     # Create TF Coordinator
     coord = tf.train.Coordinator()
     threads = tf.train.start_queue_runners(sess=sess, coord=coord)
 
-    saver.restore(sess, os.path.join(tf_checkpoint_dir, 'model_final')))
+    saver.restore(sess, os.path.join(tf_checkpoint_dir, 'model_final.ckpt'))
 
     with coord.stop_on_exception():
         while not coord.should_stop():
