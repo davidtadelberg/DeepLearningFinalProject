@@ -7,4 +7,6 @@ We believe our problem to be similar to the ImageNet challenge, so we felt that 
 
 To tune hyperparameters such as the learning rate for the novel layers and the original AlexNet layers, we trained the model on a small subset of the data. We achieved acceptable performance with a learning rate of 0.001 for the novel layers and 0.0002 for the original AlexNet layers.
 
-In our tests, we found that a L2 regularizer was not particularly helpful, so we did not think it necessary to include one in our code. We think that our network architecture, which has a number of shared parameters in the convolutional layers, served as a form of regularization.
+In our tests, we found that regularization was essential. Our unregularized network achieved a high training accuracy, but the network severely overfit, generalizing extremely poorly.
+
+Adding an $L^2$ regularizer and dropout allowed our network to generalize effectively. We found that setting $\lambda = 0.1$ for the regularizer and setting the dropout rate to $0.2$ was sufficient to achieve test-set accuracy essentially the same as the unregularized training accuracy.
