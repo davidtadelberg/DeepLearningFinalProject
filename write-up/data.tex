@@ -1,0 +1,6 @@
+\section{Data}
+To control data storage costs, we used a subset of the over 1 million urls and 15,000 landmark classes provided by the contest organizers to train our network. To generate our subset, we first sorted the landmark classes by frequency. We included landmarks 51-100 in our dataset, for a total of 65,000 images.
+
+To obtain the data, we wrote a script to download these images and resize them to a 28x28 tensor. In total, our training set is 43GB in size and our test set is 5GB in size. 
+
+The data we are provided with is in the form of URLs, from which we can write a script to retrieve the actual images. While this project seems similar to ILSVRC in that we are also classifying images (recognition and retrieval), in this project, there are over 15,000 classes (as opposed to 1,000 in ILSVRC), and the number of training examples per class may not be very large. Nevertheless, the data comes from Google images, and the expanded data set contains over 1 million images. In the test data, each image can contain one landmark, no landmark or multiple landmarks.
